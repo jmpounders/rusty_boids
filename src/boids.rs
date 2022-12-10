@@ -43,6 +43,38 @@ impl Movement for Boid {
     }
 }
 
+pub fn get_average_position(flock: &[Boid]) -> (f32, f32) {
+    let (mut avg_x, mut avg_y) = (0.0, 0.0);
+    for b in flock {
+        avg_x += b.position[0];
+        avg_y += b.position[1];
+    }
+    let n = flock.len() as f32;
+    (avg_x/n, avg_y/n)
+}
+
+pub fn get_average_velocity(flock: &[Boid]) -> (f32, f32) {
+    let (mut avg_x, mut avg_y) = (0.0, 0.0);
+    for b in flock {
+        avg_x += b.velocity[0];
+        avg_y += b.velocity[1];
+    }
+    let n = flock.len() as f32;
+    (avg_x/n, avg_y/n)
+}
+
+pub fn get_neighbors<'a>(flock: &'a [Boid], b: &Boid) -> Vec<&'a Boid> {
+    let mut nbrs: Vec<&Boid> = Vec::new();
+    for bo in flock {
+        let d = ((b.position[0]-bo.position[1]).powi(2) + 
+                 (b.position[0]-bo.position[1]).powi(2)).sqrt();
+        if d<10.0 {
+            nbrs.push(bo);
+        }
+    }
+    nbrs
+}
+
 pub fn get_boundary_deltav(boid: &Boid, max_x: &f32, max_y: &f32) -> (f32, f32) {
     let dx: f32;
     let dy: f32;
@@ -67,3 +99,24 @@ pub fn get_boundary_deltav(boid: &Boid, max_x: &f32, max_y: &f32) -> (f32, f32) 
     (dx/max_x, dy/max_y)
 }
 
+pub fn get_cohesion_deltav(boid: &Boid, com_x: &f32, com_y: &f32) -> (f32, f32) {
+    ((com_x - boid.position[0]), (com_y - boid.position[1]))
+}
+
+pub fn get_alignment_deltav(boid: &Boid, vel_x: &f32, vel_y: &f32) -> (f32, f32) {
+    ((vel_x - boid.velocity[0]), (vel_y - boid.velocity[1]))
+}
+
+pub fn get_separation_deltav(boid: &Boid, nbrs: &[&Boid]) -> (f32, f32) {
+    let (mut avg_x, mut avg_y) = (0.0, 0.0);
+    for b in nbrs {
+        avg_x += b.position[0];
+        avg_y += b.position[1];
+    }
+    let n = nbrs.len() as f32;
+    if n > 0.0 {
+        (boid.position[0] - avg_x/n, boid.position[1] - avg_y/n)
+    } else {
+        (0.0, 0.0)
+    }
+}
