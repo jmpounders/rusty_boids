@@ -60,16 +60,6 @@ pub fn get_average_position(flock: &[Boid]) -> (f32, f32) {
     (avg_x/n, avg_y/n)
 }
 
-// pub fn get_average_velocity(flock: &[Boid]) -> (f32, f32) {
-//     let (mut avg_x, mut avg_y) = (0.0, 0.0);
-//     for b in flock {
-//         avg_x += b.velocity[0];
-//         avg_y += b.velocity[1];
-//     }
-//     let n = flock.len() as f32;
-//     (avg_x/n, avg_y/n)
-// }
-
 pub fn get_neighbors<'a>(flock: &'a [Boid], self_ref: &usize) -> Vec<&'a Boid> {
     let mut nbrs: Vec<&Boid> = Vec::new();
     let b = &flock[*self_ref];
@@ -77,9 +67,11 @@ pub fn get_neighbors<'a>(flock: &'a [Boid], self_ref: &usize) -> Vec<&'a Boid> {
         if i == *self_ref {
             continue;
         }
-        let d = ((b.position[0]-bo.position[0]).powi(2) + 
-                 (b.position[1]-bo.position[1]).powi(2)).sqrt();
-        if d<0.2 {
+        let dx = bo.position[0] - b.position[0];
+        let dy = bo.position[1] - b.position[1];
+        let dist = (dx.powi(2) + dy.powi(2)).sqrt();
+        let in_perception = dx*b.position[0] + dy*b.position[1];
+        if (dist<1.0) & (in_perception>0.0) {
             nbrs.push(bo);
         }
     }
@@ -88,25 +80,26 @@ pub fn get_neighbors<'a>(flock: &'a [Boid], self_ref: &usize) -> Vec<&'a Boid> {
 
 pub fn get_boundary_deltav(boid: &Boid, nx: &i32, ny: &i32) -> (f32, f32) {
     let coeff: f32 = 1.0;
+    let margin: f32 = 1.0;
     let dx: f32;
     let dy: f32;
 
     let (max_x, max_y) = (*nx as f32, *ny as f32);
 
     // Right and left
-    if boid.position[0] > max_x {
-        dx = max_x - boid.position[0];
-    } else if boid.position[0] < 0.0 {
-        dx = -boid.position[0];
+    if boid.position[0] > (max_x-margin) {
+        dx = max_x - margin - boid.position[0];
+    } else if boid.position[0] < margin {
+        dx = margin - boid.position[0];
     } else {
         dx = 0.0;
     }
 
     // Bottom and top
-    if boid.position[1] > max_y {
-        dy = max_y - boid.position[1];
-    } else if boid.position[1] < 0.0 {
-        dy = -boid.position[1]
+    if boid.position[1] > (max_y-margin) {
+        dy = max_y - margin - boid.position[1];
+    } else if boid.position[1] < margin {
+        dy = margin - boid.position[1]
     } else {
         dy = 0.0;
     }
@@ -115,13 +108,13 @@ pub fn get_boundary_deltav(boid: &Boid, nx: &i32, ny: &i32) -> (f32, f32) {
 }
 
 pub fn get_cohesion_deltav(boid: &Boid, com_x: &f32, com_y: &f32) -> (f32, f32) {
-    let coeff: f32 = 1.0;
+    let coeff: f32 = 0.1;
     let (dx, dy) = ((com_x - boid.position[0]), (com_y - boid.position[1]));
     (coeff*dx, coeff*dy)
 }
 
 pub fn get_alignment_deltav(boid: &Boid, nbrs: &[&Boid]) -> (f32, f32) {
-    let coeff: f32 = 1.0;
+    let coeff: f32 = 0.5;
     let (mut avg_x, mut avg_y) = (0.0, 0.0);
     for b in nbrs {
         avg_x += b.velocity[0];
@@ -137,12 +130,12 @@ pub fn get_alignment_deltav(boid: &Boid, nbrs: &[&Boid]) -> (f32, f32) {
 }
 
 pub fn get_separation_deltav(boid: &Boid, nbrs: &[&Boid]) -> (f32, f32) {
-    let coeff: f32 = 10.0;
+    let coeff: f32 = 1.0;
     let (mut avg_x, mut avg_y, mut n) = (0.0, 0.0, 0.0);
     for b in nbrs {
         let d = ((b.position[0]-boid.position[0]).powi(2) + 
                  (b.position[1]-boid.position[1]).powi(2)).sqrt();
-        if d<0.01 {
+        if d<0.5 {
             avg_x += b.position[0];
             avg_y += b.position[1];
             n += 1.0;
@@ -153,6 +146,5 @@ pub fn get_separation_deltav(boid: &Boid, nbrs: &[&Boid]) -> (f32, f32) {
     } else {
         (0.0, 0.0)
     };
-
     (coeff*dx, coeff*dy)
 }

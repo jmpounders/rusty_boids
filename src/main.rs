@@ -29,7 +29,8 @@ async fn main() {
     let mut flock: Vec<boids::Boid> = Vec::new();
 
     // Set characteristic time scale
-    let t_c = 1.0;
+    let t_c = 25.0;
+    let dtau = 1.0 / t_c;
 
     // Create boids
     for _ in 0..n_boids {
@@ -55,26 +56,21 @@ async fn main() {
         t_now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards");
-        let dt = (t_now-t_prev).as_micros();
+        let _dt = (t_now-t_prev).as_micros();
         
         universe.reset();
         for b in &flock {
             universe.add_point(b.position[0], b.position[1]);
         }
 
-        // Compute center of mass and average velocity
+        // Compute center of mass
         let (com_x, com_y) = boids::get_average_position(&flock);
-        // let (vel_x, vel_y) = boids::get_average_velocity(&flock);
 
         // Accumulate forces on each boid
-        // Problem that I hit here:
-        // I wanted to combine the delta_v comps and the update
-        // inside one for loop, but the former only needed immut refs
-        // while the latter needed mut refs.  particuarly a problem
-        // when calling get_neighbors
-        let mut delta_v: Vec<(f32, f32)> = Vec::new();
-        for (i,b) in flock.iter().enumerate() {
+        for i in 0..flock.len() {
             let nbrs = boids::get_neighbors(&flock, &i);
+
+            let b = &flock[i];
             let (dx_bdry, dy_bdry) = boids::get_boundary_deltav(b, &nx, &ny);
             let (dx_com, dy_com) = boids::get_cohesion_deltav(b, &com_x, &com_y);
             let (dx_vel, dy_vel) = boids::get_alignment_deltav(b, nbrs.as_slice());
@@ -83,20 +79,9 @@ async fn main() {
                 dx_bdry+dx_com+dx_vel+dx_sep,
                 dy_bdry+dy_com+dy_vel+dy_sep,
             );
-            delta_v.push((dx, dy));
-            // println!("{:?}, {:?}, {:?}", dx_com, dx_vel, dx_sep);
-            // println!("{dx}, {dy}")
-            // for b in &flock {
-            //     println!("{:?}", b);
-            // }
-        }
 
-        // Update positions
-        for (b, (dx, dy)) in flock.iter_mut().zip(delta_v) {
-            let dt_sec: f32 = (dt as f32) / 1000000.0;
-            let dtau = 1.0 / t_c;
-            b.accelerate(&dtau, &dx, &dy);
-            b.update_position(&dt_sec);
+            flock[i].accelerate(&dtau, &dx, &dy);
+            flock[i].update_position(&dtau);
         }
 
         next_frame().await;
